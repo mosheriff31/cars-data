@@ -1,0 +1,83 @@
+import requests
+import re
+from bs4 import BeautifulSoup
+import mysql.connector
+from mysql.connector import errorcode
+
+def create_database(cursor):
+    try:
+        cursor.execute(
+            "CREATE DATABASE {} ".format(DB))
+    except mysql.connector.Error as err:
+        print("Failed creating database: {}".format(err))
+        exit(1)
+
+
+car = input("Enter your car:")
+car = car.lower()
+
+r = requests.get('https://www.truecar.com/used-cars-for-sale/listings/%s/'%(car))
+print(r)
+
+soup = BeautifulSoup(r.text, 'html.parser', multi_valued_attributes=None)
+
+Items = soup.find_all("div",attrs={"data-test":"vehicleCardInfo" })
+Mileage = soup.find_all("div", attrs={"data-test":"vehicleMileage" })
+counter = 0
+cars =[]
+mileage = []
+for item in Items :
+    item = re.sub(r'\s+',' ',item.text)
+    cars.append(item)
+
+for mile in Mileage:
+    mile = re.sub(r'\s+',' ',mile.text)
+    mileage.append(mile)
+    
+
+cnx = mysql.connector.connect(user = '',password = "",
+                              host = '127.0.0.1')
+
+cursor = cnx.cursor()
+
+DB = "Cars"
+
+TABLES = {}
+TABLES['carsdata'] = ('CREATE TABLE carsdata\
+(cars VARCHAR(250), mileage VARCHAR(100));')
+
+try:
+    cursor.execute("USE Cars")
+except mysql.connector.Error as err:
+    print("Database {} does not exists.".format(DB))
+    if err.errno == errorcode.ER_BAD_DB_ERROR:
+        create_database(cursor)
+        print("Database {} created successfully.".format(DB))
+        cnx.database = DB
+    else:
+        print(err)
+        exit(1)
+
+for table_name in TABLES:
+    table_description = TABLES[table_name]
+    try:
+        print("Creating table {}: ".format(table_name), end='')
+        cursor.execute(table_description)
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
+            print("already exists.")
+        else:
+            print(err.msg)
+    else:
+        print("OK")
+
+for i in range(len(cars)):
+    car = cars[i]
+    car = car.replace("'","")
+    add_data = ('INSERT INTO carsdata VALUES (\'%s\',\'%s\')'%(car,mileage[i]))
+    cursor.execute(add_data)    
+
+
+cnx.commit()
+cursor.close()
+cnx.close()
