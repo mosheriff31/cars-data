@@ -1,2 +1,2 @@
 # cars-data
-Scraping Cars data from truecar.com and storing the carnames and mileage in mysql
+Scraping Cars data from truecar.com and storing the carnames and mileage in mysql using Python and Beautiful soup
